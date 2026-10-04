@@ -11,10 +11,22 @@ claude plugin marketplace add guasam/claude-plugins
 claude plugin install cc-paste-thumbnails@guasam
 ```
 
+## Supported platforms
+
+| Platform | Status        | Reads the clipboard with              |
+| -------- | ------------- | ------------------------------------- |
+| macOS    | Supported     | `osascript`                           |
+| Linux    | Supported     | `wl-paste` (Wayland) or `xclip` (X11) |
+| Windows  | Not supported | -                                     |
+
+<br>
+
+On Windows the plugin still loads, but pasted images show a `no preview` chip instead of a thumbnail.
+
+Real thumbnails also need a terminal with the kitty graphics protocol (Ghostty, kitty). Other terminals and the desktop app show text chips instead.
+
 ## Notes
 
-- macOS and Linux. Reads the clipboard with `osascript` on macOS, and `wl-paste` (Wayland) or `xclip` (X11) on Linux
-- Real thumbnails need a terminal with the kitty graphics protocol (Ghostty, kitty). Other terminals and the desktop app show text chips instead.
 - Built on Claude Code's early-access plugin API, which may change between releases.
 
 ## Development
