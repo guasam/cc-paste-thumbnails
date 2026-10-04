@@ -1,0 +1,9 @@
+{
+  "name": "cc-paste-thumbnails",
+  "version": "0.1.0",
+  "description": "Shows images pasted into the prompt as thumbnails above it",
+  "author": {
+    "name": "guasam"
+  },
+  "types": "./types/index.d.ts"
+}
