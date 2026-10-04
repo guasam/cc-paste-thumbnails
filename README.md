@@ -23,3 +23,7 @@ claude plugin test .
 ```
 
 To load a local checkout in every session, add its path to `CLAUDE_CODE_PLUGIN_DIRS` under `env` in `~/.claude/settings.json`. Edits then reload live.
+
+## License
+
+MIT
