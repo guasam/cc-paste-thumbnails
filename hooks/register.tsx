@@ -50,6 +50,7 @@ async function capture($: EngineInterface, n: number) {
 }
 
 async function clear($: EngineInterface) {
+  lastText = undefined
   const paths = (await read($, thumbs)).flatMap(one => (one.path ? [one.path] : []))
   await update($, thumbs, () => [])
   await update($, shown, () => [])
@@ -58,8 +59,16 @@ async function clear($: EngineInterface) {
   }
 }
 
+// The draft as last synced, so a poll tick that finds it unchanged does nothing
+let lastText: string | undefined
+
 // Matches the band to the `[Image #N]` placeholders in the draft, capturing any new ones
 async function sync($: EngineInterface, text: string) {
+  if (text === lastText) {
+    return
+  }
+  lastText = text
+
   const present = placeholders(text)
   const before = await read($, shown)
   if (present.join() === before.join()) {
@@ -100,7 +109,9 @@ async function poll($: EngineInterface) {
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     // An image paste lands in the draft without a prompt.edit, so watch the box too
-    $.clock.every(400, () => void poll($))
+    if (e.isInteractive) {
+      $.clock.every(400, () => void poll($))
+    }
 
     return next(e)
   })

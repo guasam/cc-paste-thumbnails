@@ -128,3 +128,19 @@ test('a placeholder that lands without an edit event is caught by the poll', asy
   expect(await ui.find({ type: 'Image' })).toBeDefined()
   await ui.unmount()
 })
+
+test('a non-interactive session does not poll', async ($, on) => {
+  const { clock } = world(on)
+  let reads = 0
+  on('prompt.read', () => {
+    reads += 1
+
+    return { value: { text: '[Image #1]', cursor: 10 } }
+  })
+  on('session.start', () => ({ cwd: '/tmp' }))
+
+  await $.session.start({ cwd: '/tmp', surface: null, isInteractive: false } as never)
+  await clock.advance(2000)
+
+  expect(reads).toBe(0)
+})
