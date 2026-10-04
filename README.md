@@ -2,7 +2,7 @@
 
 A [Claude Code](https://claude.com/claude-code) plugin that shows images you paste into the prompt as thumbnails above it, labeled `#N` with their resolution so they match the `[Image #N]` placeholders. Delete a placeholder and its thumbnail goes away; submit and the row clears.
 
-![Two pasted images shown as thumbnails above the Claude Code prompt, labeled #4 1344×944 and #6 128×128](image.webp)
+![Two pasted images shown as thumbnails above the Claude Code prompt](image.png)
 
 ## Install
 
