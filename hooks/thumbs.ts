@@ -32,6 +32,26 @@ export const parseSips = (stdout: string): { width?: number; height?: number } =
   }
 }
 
+// Reads the size from the IHDR chunk of a PNG, given `od -An -tu1 -N24` of its first 24 bytes
+export const parsePngHeader = (stdout: string): { width?: number; height?: number } => {
+  const bytes = stdout.trim().split(/\s+/).map(Number)
+  if (bytes.length < 24 || String.fromCharCode(...bytes.slice(12, 16)) !== 'IHDR') {
+    return {}
+  }
+
+  const word = (at: number) => bytes.slice(at, at + 4).reduce((n, b) => n * 256 + b, 0)
+
+  return { width: word(16), height: word(20) }
+}
+
+// Reads the clipboard's PNG into the file named by $1 with wl-paste (Wayland) or
+// xclip (X11, XWayland); prints "ok" or "none"
+export const LINUX_CLIPBOARD_SCRIPT = `f="$1"
+{ [ -n "$WAYLAND_DISPLAY" ] && wl-paste --type image/png > "$f"; } 2>/dev/null ||
+  xclip -selection clipboard -t image/png -o > "$f" 2>/dev/null
+if [ -s "$f" ]; then printf ok; else rm -f "$f"; printf none; fi
+`
+
 // Reads the clipboard's PNG into the file named by argv[1]; prints "ok" or "none"
 export const CLIPBOARD_SCRIPT = `on run argv
   try

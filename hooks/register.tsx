@@ -2,7 +2,15 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Thumb } from '../types'
-import { CLIPBOARD_SCRIPT, THUMB_ROWS, parseSips, placeholders, thumbColumns } from './thumbs'
+import {
+  CLIPBOARD_SCRIPT,
+  LINUX_CLIPBOARD_SCRIPT,
+  THUMB_ROWS,
+  parsePngHeader,
+  parseSips,
+  placeholders,
+  thumbColumns,
+} from './thumbs'
 
 // Every image captured for the current draft, kept even when its placeholder
 // is deleted so an undo brings the same picture back
@@ -26,6 +34,35 @@ async function tempDir($: EngineInterface) {
   return dir
 }
 
+let linux: boolean | undefined
+
+async function isLinux($: EngineInterface) {
+  if (linux === undefined) {
+    linux = (await $.process.run(['uname', '-s'])).stdout.trim() === 'Linux'
+  }
+
+  return linux
+}
+
+// Writes the clipboard's PNG to path and reads its size; undefined when there is no image
+async function grab($: EngineInterface, path: string) {
+  if (await isLinux($)) {
+    const paste = await $.process.run(['sh', '-c', LINUX_CLIPBOARD_SCRIPT, 'sh', path], { timeoutMs: 5000 })
+    if (paste.exitCode !== 0 || paste.stdout.trim() !== 'ok') {
+      return undefined
+    }
+
+    return parsePngHeader((await $.process.run(['od', '-An', '-tu1', '-N24', path])).stdout)
+  }
+
+  const paste = await $.process.run(['osascript', '-', path], { stdin: CLIPBOARD_SCRIPT, timeoutMs: 5000 })
+  if (paste.exitCode !== 0 || paste.stdout.trim() !== 'ok') {
+    return undefined
+  }
+
+  return parseSips((await $.process.run(['sips', '-g', 'pixelWidth', '-g', 'pixelHeight', path])).stdout)
+}
+
 function settle($: EngineInterface, n: number, patch: Partial<Thumb>) {
   return update($, thumbs, list => list.map(one => (one.n === n ? { ...one, ...patch } : one)))
 }
@@ -33,15 +70,8 @@ function settle($: EngineInterface, n: number, patch: Partial<Thumb>) {
 async function capture($: EngineInterface, n: number) {
   try {
     const path = `${await tempDir($)}/${Date.now()}-${n}.png`
-    const grab = await $.process.run(['osascript', '-', path], { stdin: CLIPBOARD_SCRIPT, timeoutMs: 5000 })
-    if (grab.exitCode !== 0 || grab.stdout.trim() !== 'ok') {
-      await settle($, n, { status: 'missing' })
-
-      return
-    }
-
-    const sips = await $.process.run(['sips', '-g', 'pixelWidth', '-g', 'pixelHeight', path])
-    await settle($, n, { status: 'ready', path, ...parseSips(sips.stdout) })
+    const size = await grab($, path)
+    await settle($, n, size ? { status: 'ready', path, ...size } : { status: 'missing' })
   } catch {
     await settle($, n, { status: 'missing' })
   } finally {

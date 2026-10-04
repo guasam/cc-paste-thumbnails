@@ -15,8 +15,11 @@ const BAND = {
   },
 } as const
 
-// Stands in for the shell, osascript and sips beneath the plugin
-const world = (on: On) => {
+// The first 24 bytes of a 1280×720 PNG as `od -An -tu1 -N24` prints them
+const PNG_HEAD = ' 137  80  78  71  13  10  26  10   0   0   0  13  73  72  68  82\n   0   0   5   0   0   0   2 208\n'
+
+// Stands in for the shell, osascript and sips (or wl-paste and od on Linux) beneath the plugin
+const world = (on: On, os = 'Darwin') => {
   const clock = mock.clock(on)
   const ran: string[][] = []
   on('process.run', ($, e) => {
@@ -24,7 +27,10 @@ const world = (on: On) => {
     const out = (stdout: string) => ({
       value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
     })
-    if (e.argv[0] === 'sh') return out('/tmp/cc-paste-thumbnails')
+    if (e.argv[0] === 'uname') return out(`${os}\n`)
+    // The clipboard script gets the target path after `sh -c <script> sh`
+    if (e.argv[0] === 'sh') return out(e.argv.length > 4 ? 'ok' : '/tmp/cc-paste-thumbnails')
+    if (e.argv[0] === 'od') return out(PNG_HEAD)
     if (e.argv[0] === 'osascript') return out('ok\n')
     if (e.argv[0] === 'sips') return out(`${e.argv[5]}\n  pixelWidth: 1280\n  pixelHeight: 720\n`)
 
@@ -65,6 +71,19 @@ test('a pasted image shows as a thumbnail above the prompt', async ($, on) => {
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   const image = await ui.find({ type: 'Image' })
   expect(image?.props.source).toEqual({ file: expect.stringMatching(/^\/tmp\/cc-paste-thumbnails\/\d+-1\.png$/), format: 'png' })
+  expect((await ui.find({ type: 'Text', text: /#1 1280×720/ }))?.text).toContain('1280×720')
+  await ui.unmount()
+})
+
+test('on Linux the clipboard is read with wl-paste or xclip and sized from the PNG header', async ($, on) => {
+  const { clock, ran } = world(on, 'Linux')
+
+  await type($, 'look at ', '[Image #1]')
+  await clock.advance(0)
+
+  expect(ran.some(argv => argv[0] === 'osascript' || argv[0] === 'sips')).toBe(false)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ type: 'Image' })).toBeDefined()
   expect((await ui.find({ type: 'Text', text: /#1 1280×720/ }))?.text).toContain('1280×720')
   await ui.unmount()
 })
